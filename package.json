@@ -1,0 +1,15 @@
+{
+  "name": "thunderhug",
+  "version": "0.0.1",
+  "description": "A call for proposals app that uses Google Spreadsheets to store sessions and keep out of your way.",
+  "scripts": {
+    "test": "grunt test"
+  },
+  "keywords": [
+    "mozilla",
+    "festival",
+    "proposal"
+  ],
+  "author": "William Duyck <wduyck@mozillafoundation.org>",
+  "license": "MPL-2"
+}
