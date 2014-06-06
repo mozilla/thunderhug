@@ -3,7 +3,8 @@
   "version": "0.0.1",
   "description": "A call for proposals app that uses Google Spreadsheets to store sessions and keep out of your way.",
   "scripts": {
-    "test": "grunt test"
+    "test": "grunt test",
+    "start": "app.js"
   },
   "keywords": [
     "mozilla",
@@ -11,5 +12,18 @@
     "proposal"
   ],
   "author": "William Duyck <wduyck@mozillafoundation.org>",
-  "license": "MPL-2"
+  "license": "MPL-2",
+  "devDependencies": {
+    "grunt": "^0.4.5",
+    "grunt-contrib-jshint": "^0.10.0",
+    "grunt-contrib-watch": "^0.6.1",
+    "grunt-express-server": "^0.4.17"
+  },
+  "dependencies": {
+    "express": "^4.4.1",
+    "google-spreadsheet": "^0.2.8",
+    "marked": "^0.3.2",
+    "morgan": "^1.1.1",
+    "nconf": "^0.6.9"
+  }
 }

@@ -1,0 +1,81 @@
+#!/usr/bin/env node
+'use strict';
+
+/*
+  Get all the libs, etc...
+ */
+var shared = require( '../shared' );
+var env = shared.env;
+var redisClient = shared.redisClient;
+
+var GoogleSpreadsheet = require( 'google-spreadsheet' );
+
+// This is where all gets put.
+var worksheets = {};
+
+// We do NOT want to be keeping any email addresses, so regex to find them
+var emailRegex = new RegExp('(?:[a-z0-9!#$%&\'*+/=?^_`{|}~-]+(?:\\.[a-z0-9!#$%&\'*+/=?^_`{|}~-]+)*|"(?:[\\x01-\\x08\\x0b\\x0c\\x0e-\\x1f\\x21\\x23-\\x5b\\x5d-\\x7f]|\\\\[\\x01-\\x09\\x0b\\x0c\\x0e-\\x7f])*")@(?:(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\\.)+[a-z0-9](?:[a-z0-9-]*[a-z0-9])?|\\[(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?|[a-z0-9-]*[a-z0-9]:(?:[\\x01-\\x08\\x0b\\x0c\\x0e-\\x1f\\x21-\\x5a\\x53-\\x7f]|\\\\[\\x01-\\x09\\x0b\\x0c\\x0e-\\x7f])+)\\])', 'ig');
+
+/*
+  Get the raw data and make it useful
+ */
+var doc = new GoogleSpreadsheet( env.get( 'GOOGLE_KEY' ) );
+doc.setAuth( env.get( 'GOOGLE_USER' ), env.get( 'GOOGLE_USER_PASS' ), function( error ) {
+  if( error ) {
+    console.error( error );
+    process.exit( 1 );
+  }
+
+  doc.getInfo( function( error, rawData ) {
+    if( error ) {
+      console.error( error );
+      process.exit( 1 );
+    }
+
+    rawData.worksheets.forEach( function( sheet, idx ) {
+      // setup sane usage
+      worksheets[ sheet.title ] = sheet;
+      sheet = worksheets[ sheet.title ];
+
+      // add the index for the sheet to sheet obj
+      sheet.sheetIndex = idx;
+
+      // get rows headings
+      sheet.getRows( function( error, rowData ) {
+        // get column headings before processing futher
+        sheet.columnNames = [];
+        for( var key in rowData[ 0 ] ) {
+          // if key not "content" or starting w/ an "_" AND is a string
+          if( ( !/^(_|content|email)/.test( key ) ) && ( typeof rowData[ 0 ][ key ] === 'string' ) ) {
+            sheet.columnNames.push( key );
+          }
+        }
+
+        // now deal w/ row data
+        sheet.data = [];
+
+        rowData.forEach( function( row ) {
+          var tmp = {};
+
+          sheet.columnNames.forEach( function( column ) {
+            var safeColumn = row[ column ];
+            safeColumn = safeColumn.replace( emailRegex, '' ); // remove emails if added
+            safeColumn = safeColumn.replace( /<>/ig, '' ); // clean up a little from email removal
+            safeColumn = safeColumn.replace( /(<([^>]+)>)/ig, '' ); // remove html
+            safeColumn = safeColumn.trim(); // no silly excess whitespace
+
+            tmp[ column ] = safeColumn;
+          });
+
+          sheet.data.push( tmp );
+        });
+
+        // store data
+        redisClient.set( 'thunderhug:' + sheet.title, JSON.stringify( worksheets[ sheet.title ] ) );
+
+        // done all the things, exit now
+        process.exit( 0 );
+      });
+    });
+  });
+});
