@@ -23,6 +23,7 @@
     "express": "^4.4.1",
     "google-spreadsheet": "^0.2.8",
     "marked": "^0.3.2",
+    "moment": "^2.6.0",
     "morgan": "^1.1.1",
     "nconf": "^0.6.9"
   }
