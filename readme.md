@@ -23,7 +23,7 @@ have been made so far (inc. unreviewed).
 				format: 'Design Challenge',
 				track: 'mobile',
 				description: 'Lorem ipsum dolor sit amet...',
-				proposal_timestamp: '2014-06-12T13:01:42.391Z'
+				proposal_timestamp: '2014-06-12T13:01:42.391Z',
 				facilitator: {
 					first_name: 'William',
 					last_name: 'Duyck',
