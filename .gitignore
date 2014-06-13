@@ -5,7 +5,8 @@
 .LSOverride
 
 # Icon must ends with two \r.
-Icon
+Icon
+
 
 # Thumbnails
 ._*
@@ -34,3 +35,6 @@ build
 node_modules
 
 
+### Project Specific
+config.json
+.env

@@ -57,10 +57,30 @@ doc.setAuth( env.get( 'GOOGLE_USER' ), env.get( 'GOOGLE_USER_PASS' ), function( 
         rowData.forEach( function( row ) {
           var tmp = {};
 
+          /*
+            We don't want rows that have not been reviewed. Just skip them.
+
+            (This is fine as the reviewed column is required)
+           */
+          if( ( ! /^meta$/i.test( sheet.title ) ) && // SKIP CHECK if we're on looking at the "meta" sheet.
+              ( !row[ env.get( 'PUBLIC_FLAG' ) ] || /^(no?|f(alse)?|0)$/i.test( row[ env.get( 'PUBLIC_FLAG' ) ] ) ) ) { // SKIP ROW if reviewed col is empty or falsey
+            return;
+          }
+
           sheet.columnNames.forEach( function( column ) {
             var safeColumn = row[ column ];
-            safeColumn = safeColumn.replace( emailRegex, '' ); // remove emails if added
-            safeColumn = safeColumn.replace( /<>/ig, '' ); // clean up a little from email removal
+
+            /*
+              Remove emails on inbound data. Never store these outside gDocs.
+             */
+            if( ! /^meta$/i.test( sheet.title ) ) { // SKIP CHECK if we're looking at the "meta" sheet.
+              safeColumn = safeColumn.replace( emailRegex, '' ); // remove emails if added
+              safeColumn = safeColumn.replace( /<>/ig, '' ); // clean up a little from email removal
+            }
+
+            /*
+              Remove anything that could bork things using the data.
+             */
             safeColumn = safeColumn.replace( /(<([^>]+)>)/ig, '' ); // remove html
             safeColumn = safeColumn.trim(); // no silly excess whitespace
 

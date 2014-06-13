@@ -4,7 +4,7 @@
 var express = require( 'express' );
 var morgan = require( 'morgan' );
 var moment = require( 'moment' );
-var marked = require( 'marked' );
+var json2csv = require( 'json2csv' );
 
 var shared = require( './shared' );
 var env = shared.env;
@@ -61,10 +61,10 @@ function cleanProposals( proposals ) {
       title: proposal.title,
       theme: proposal.theme,
       organization: organization( proposal.organization, proposal ),
-      goals: marked( proposal.goals ),
-      agneda: marked( proposal.agenda ),
-      scale: marked( proposal.scale ),
-      outcomes: marked( proposal.outcomes )
+      goals: proposal.goals,
+      agneda: proposal.agenda,
+      scale: proposal.scale,
+      outcomes: proposal.outcomes
     };
 
     // deal w/ timestamp
@@ -173,7 +173,7 @@ app.get( '/all', function( request, response ) {
   });
 });
 
-app.get( '/:theme', function( request, response ) {
+app.get( '/:theme/:format?', function( request, response ) {
   redisClient.get( 'thunderhug:meta', function( error, meta ) {
     if( error ) {
       response.status( 500 ).jsonp({
@@ -251,7 +251,65 @@ app.get( '/:theme', function( request, response ) {
 
       var safeProposals = cleanProposals( themeProposals );
 
-      response.jsonp( safeProposals );
+      switch( request.params.format ) {
+        case 'json':
+        case 'jsonp':
+        case undefined:
+          response.jsonp( safeProposals );
+        break;
+        case 'csv':
+          // csv code here
+          safeProposals.forEach( function( proposal, idx ) {
+            var stringifiedFacilitators = proposal.facilitators;
+
+            stringifiedFacilitators.forEach( function( facilitator, idx ) {
+              var tmp = facilitator;
+              facilitator = tmp.name;
+
+              if( tmp.twitter ) {
+                facilitator += ' ' + tmp.twitter;
+              }
+
+              proposal.facilitators[ idx ] = facilitator;
+            });
+
+            stringifiedFacilitators = stringifiedFacilitators.join( '\n' );
+
+            safeProposals[ idx ].facilitators = stringifiedFacilitators;
+          });
+
+          json2csv( {
+            data: safeProposals,
+            fields: [
+              'timestamp',
+              'title',
+              'theme',
+              'organization',
+              'facilitators',
+              'goals',
+              'agneda',
+              'scale',
+              'outcomes'
+            ]
+          }, function( error, csv ) {
+            if ( error ) {
+              response.status( 500 ).send();
+              return console.error( error );
+            }
+            response.set('Content-Type', 'text/plain');
+            response.send( csv );
+          });
+        break;
+        default:
+          // default code here
+          response.status( 400 ).jsonp({
+            errors: [{
+              message: 'requested format (' + request.params.format + ') not recognized',
+              code: 400
+            }]
+          });
+        break;
+      }
     });
   });
 });

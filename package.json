@@ -22,6 +22,7 @@
   "dependencies": {
     "express": "^4.4.1",
     "google-spreadsheet": "^0.2.8",
+    "json2csv": "^2.2.1",
     "marked": "^0.3.2",
     "moment": "^2.6.0",
     "morgan": "^1.1.1",
