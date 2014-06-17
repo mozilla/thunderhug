@@ -38,3 +38,4 @@ node_modules
 ### Project Specific
 config.json
 .env
+dump.rdb
