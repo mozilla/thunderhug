@@ -110,6 +110,11 @@ function cleanProposals( proposals ) {
 
 // deal w/ api calls
 app.get( [ '/', '/healthcheck' ], function( request, response ) {
+  response.set({
+    'Cache-Control': 'no-cache, no-store, must-revalidate',
+    'Pragma': 'no-cache',
+    'Expires': '0'
+  });
   response.jsonp( healthcheck );
 });
 
@@ -140,6 +145,34 @@ app.get( '/all', function( request, response ) {
 
     meta = JSON.parse( meta );
 
+    /*
+      Get themes
+     */
+    var themeNames = {};
+    var themeDescriptions = {};
+    var themes = [];
+
+    meta.data.forEach( function( metaItem, idx ) {
+      if( metaItem.type === 'theme' ) {
+        themeNames[ metaItem.key ] = {
+          name: metaItem.value,
+          slug: metaItem.key
+        };
+      }
+
+      if( metaItem.type === 'description' ) {
+        themeDescriptions[ metaItem.key ] = metaItem.value;
+      }
+    });
+
+    for( var theme in themeNames ){
+      themes.push({
+        name: themeNames[ theme ].name,
+        slug: theme,
+        description: themeDescriptions[ theme ] || ''
+      });
+    }
+
     // get megazord (all) proposals
     redisClient.get( 'thunderhug:megazord', function( error, data ) {
       if( error ) {
@@ -168,7 +201,18 @@ app.get( '/all', function( request, response ) {
       var proposals = data.data;
       var safeProposals = cleanProposals( proposals );
 
-      response.jsonp( safeProposals );
+      response.set({
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Pragma': 'no-cache',
+        'Expires': '0'
+      });
+      response.jsonp({
+        meta: {
+          totalProposals: safeProposals.length
+        },
+        sessions: safeProposals,
+        themes: themes
+      });
     });
   });
 });
@@ -215,6 +259,34 @@ app.get( '/:theme/:format?', function( request, response ) {
       return;
     }
 
+    /*
+      Get themes
+     */
+    var themeNames = {};
+    var themeDescriptions = {};
+    var themes = [];
+
+    meta.data.forEach( function( metaItem, idx ) {
+      if( metaItem.type === 'theme' ) {
+        themeNames[ metaItem.key ] = {
+          name: metaItem.value,
+          slug: metaItem.key
+        };
+      }
+
+      if( metaItem.type === 'description' ) {
+        themeDescriptions[ metaItem.key ] = metaItem.value;
+      }
+    });
+
+    for( var theme in themeNames ){
+      themes.push({
+        name: themeNames[ theme ].name,
+        slug: theme,
+        description: themeDescriptions[ theme ] || ''
+      });
+    }
+
     // get megazord (all) proposals
     redisClient.get( 'thunderhug:megazord', function( error, data ) {
       if( error ) {
@@ -251,11 +323,34 @@ app.get( '/:theme/:format?', function( request, response ) {
 
       var safeProposals = cleanProposals( themeProposals );
 
+      response.set({
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Pragma': 'no-cache',
+        'Expires': '0'
+      });
+
       switch( request.params.format ) {
         case 'json':
         case 'jsonp':
         case undefined:
-          response.jsonp( safeProposals );
+          var currentTheme = {};
+
+          for( var idx = 0, len = themes.length; idx < len; idx++ ) {
+            if( themes[ idx ].slug === request.params.theme ) {
+              currentTheme = themes[ idx ];
+              break;
+            }
+          }
+
+          response.jsonp({
+            meta: {
+              name: currentTheme.name,
+              slug: currentTheme.slug,
+              description: currentTheme.description,
+              totalProposals: safeProposals.length
+            },
+            sessions: safeProposals
+          });
         break;
         case 'csv':
           // csv code here
