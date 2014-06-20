@@ -30,6 +30,7 @@ function  getRedisClient() {
   if( env.get( 'REDISTOGO_URL' ) ) {
     redisConf = require( 'url' ).parse( env.get( 'REDISTOGO_URL' ) );
     db = redis.createClient( redisConf.port, redisConf.hostname );
+    db.auth( redisConf.auth.split( ':' )[ 1 ] );
     return db;
   }
 
