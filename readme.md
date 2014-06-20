@@ -15,39 +15,39 @@ have been made so far (inc. unreviewed).
 
 	{
 		meta: {
-			total_proposals: 324
+			slug: 'all',
+			description: 'A full listing of all proposals submitted',
+			totalProposals: 324
 		},
 		sessions: [
 			{
-				name: 'Redesigning FireHug for the future.',
-				format: 'Design Challenge',
-				track: 'mobile',
-				description: 'Lorem ipsum dolor sit amet...',
-				proposal_timestamp: '2014-06-12T13:01:42.391Z',
-				facilitator: {
-					first_name: 'William',
-					last_name: 'Duyck',
-					organization: 'Mozilla Foundation',
-					twitter: '@FuzzyFox0'
-				}
+				title: 'Redesigning FireHug for the future.',
+				theme: 'Web in your pocket',
+				themeSlug: 'mobile',
+				facilitators: [
+					{
+						name: 'William Duyck',
+						twitter: '@FuzzyFox0'
+					},
+					{ ... }
+				],
+				organization: 'Mozilla Foundation',
+				goals: 'Lorem ipsum dolor sit amet...',
+				agenda: 'Lorem ipsum dolor sit amet...',
+				scale: 'Lorem ipsum dolor sit amet...',
+				outcomes: 'Lorem ipsum dolor sit amet...',
+				timestamp: '2014-06-12T13:01:42.391Z'
 			},
-			{...}
+			{ ... }
 		],
-		formats: [
+		themes: [
 			{
-				name: 'Design Challenge',
-				slug: 'design_challenge',
-				description: 'Lorem ipsum dolor sit amet...'
-			},
-			{...}
-		],
-		tracks: [
-			{
-				name: 'Mobile WebApps',
+				name: 'Web in your pocket',
 				slug: 'mobile',
-				description: 'Lorem ipsum dolor sit amet...'
+				description: 'Lorem ipsum dolor sit amet...',
+				totalProposals: 29
 			},
-			{...}
+			{ ... }
 		]
 	}
 
@@ -58,72 +58,30 @@ made for this track (inc. unreviewed).
 
 	{
 		meta: {
-			name: 'Mobile WebApps',
 			slug: 'mobile',
-			description: 'Lorem ipsum dolor sit amet...',
-			total_proposals: 42,
+			description: 'A full listing of all proposals submitted',
+			totalProposals: 29
 		},
 		sessions: [
 			{
-				name: 'Redesigning FireHug for the future.',
-				format: 'Design Challenge',
-				track: 'mobile',
-				description: 'Lorem ipsum dolor sit amet...',
-				proposal_timestamp: '2014-06-12T13:01:42.391Z'
-				facilitator: {
-					first_name: 'William',
-					last_name: 'Duyck',
-					organization: 'Mozilla Foundation',
-					twitter: '@FuzzyFox0'
-				}
+				title: 'Redesigning FireHug for the future.',
+				theme: 'Web in your pocket',
+				themeSlug: 'mobile',
+				facilitators: [
+					{
+						name: 'William Duyck',
+						twitter: '@FuzzyFox0'
+					},
+					{ ... }
+				],
+				organization: 'Mozilla Foundation',
+				goals: 'Lorem ipsum dolor sit amet...',
+				agenda: 'Lorem ipsum dolor sit amet...',
+				scale: 'Lorem ipsum dolor sit amet...',
+				outcomes: 'Lorem ipsum dolor sit amet...',
+				timestamp: '2014-06-12T13:01:42.391Z'
 			},
-			{...}
-		],
-		formats: [
-			{
-				name: 'Design Challenge',
-				slug: 'design_challenge',
-				description: 'Lorem ipsum dolor sit amet...'
-			},
-			{...}
-		]
-	}
-
-#### /api/:format_slug
-Returns all session proposals for the given format, along with metadata about the
-requested format, all possible tracks, and how many proposals have been made for
-this format (inc. unreviewed).
-
-	{
-		meta: {
-			name: 'Design Challenge',
-			slug: 'design_challenge',
-			description: 'Lorem ipsum dolor sit amet...',
-			total_proposals: 23,
-		},
-		sessions: [
-			{
-				name: 'Redesigning FireHug for the future.',
-				format: 'Design Challenge',
-				track: 'mobile',
-				description: 'Lorem ipsum dolor sit amet...',
-				proposal_timestamp: '2014-06-12T13:01:42.391Z'
-				facilitator: {
-					first_name: 'William',
-					last_name: 'Duyck',
-					organization: 'Mozilla Foundation',
-					twitter: '@FuzzyFox0'
-				}
-			},
-			{...}
-		],
-		tracks: [
-			{
-				name: 'Mobile WebApps',
-				slug: 'mobile',
-				description: 'Lorem ipsum dolor sit amet...'
-			},
-			{...}
+			{ ... }
 		]
 	}
 

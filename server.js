@@ -83,10 +83,31 @@ function getProposals( req, res ) {
       sessions: proposals
     };
 
+    // if we're on all add all known themes to response
     if( meta.slug === 'all' ) {
+      // get the themes + details
       resObj.themes = sessions.getThemes();
+
+      // get the number of proposals for each theme
+      return sessions.getThemeCounts( function( errs, counts ) {
+        // oops something failed at some point
+        if( errs ) {
+          return res.status( 500 ).jsonp({
+            errors: errs
+          });
+        }
+
+        // update each theme w/ its count
+        resObj.themes.forEach( function( theme, idx ) {
+          resObj.themes[ idx ].totalProposals = counts[ theme.slug ];
+        });
+
+        // respond to the user
+        return res.jsonp( resObj );
+      });
     }
 
+    // send back response
     return res.jsonp( resObj );
   }
 
