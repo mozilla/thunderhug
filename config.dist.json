@@ -2,6 +2,8 @@
   "GOOGLE_KEY": "",
   "GOOGLE_USER": "",
   "GOOGLE_USER_PASS": "",
+  "POLL_INTERVAL": 3600000,
   "PUBLIC_FLAG": "reviewed",
+  "REDIS_PREFIX": "thunderhug",
   "PORT": 4000
 }

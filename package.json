@@ -1,10 +1,10 @@
 {
   "name": "thunderhug",
-  "version": "0.0.3",
+  "version": "0.0.9",
   "description": "A call for proposals app that uses Google Spreadsheets to store sessions and keep out of your way.",
   "scripts": {
     "test": "grunt test",
-    "start": "app.js"
+    "start": "node server.js"
   },
   "keywords": [
     "mozilla",

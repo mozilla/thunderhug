@@ -3,13 +3,11 @@
 // now for the app
 var express = require( 'express' );
 var morgan = require( 'morgan' );
-var moment = require( 'moment' );
 var json2csv = require( 'json2csv' );
-
+var sessions = require( './lib/sessions' );
 var shared = require( './shared' );
 var env = shared.env;
 var debug = shared.debug;
-var redisClient = shared.redisClient;
 
 // job scheduler
 require( './bin' );
@@ -28,385 +26,164 @@ if( env.get( 'debug' ) || env.get( 'DEBUG' ) ) {
   app.use( morgan( 'dev' ) );
 }
 
-// return publicly safe proposals from full dataset
-function cleanProposals( proposals ) {
-  /**
-   * return twitter handle ONLY if allowed by user
-   */
-  function twitter( handle, proposal ) {
-    if( /twitter/ig.test( proposal.privacy ) ) {
-      return '';
-    }
-
-    return handle;
-  }
-
-  /**
-   * return organization ONLY if allowed by user
-   */
-  function organization( org, proposal ) {
-    if( /organization/ig.test( proposal.privacy ) ) {
-      return '';
-    }
-
-    return org;
-  }
-
-  var safeProposals = [];
-  proposals.forEach( function( proposal ) {
-    /*
-      Deal w/ session data
-     */
-    var safeProposal = {
-      title: proposal.title,
-      theme: proposal.theme,
-      organization: organization( proposal.organization, proposal ),
-      goals: proposal.goals,
-      agneda: proposal.agenda,
-      scale: proposal.scale,
-      outcomes: proposal.outcomes
-    };
-
-    // deal w/ timestamp
-    safeProposal.timestamp = moment( proposal.timestamp ).toISOString();
-
-    /*
-      deal w/ facilitators
-     */
-    safeProposal.facilitators = [];
-
-    // deal w/ first facilitator (required)
-    safeProposal.facilitators.push({
-      name: proposal.firstname + ' ' + proposal.surname,
-      twitter: twitter( proposal.twitter, proposal )
-    });
-
-    // deal w/ additional facilitators
-    var additionalFacilitators = proposal.facilitators.split( '\n' );
-    additionalFacilitators.forEach( function( facilitator ) {
-      var twitter = facilitator.match( /\B@[a-z0-9_-]+/i );
-      if( twitter ) {
-        twitter = twitter[ 0 ];
-      }
-      else {
-        twitter = '';
-      }
-
-      facilitator = facilitator.replace( /\B@[a-z0-9_-]+/gi, '' ).trim();
-
-      if( facilitator !== '' ) {
-        safeProposal.facilitators.push({
-          name: facilitator,
-          twitter: twitter
-        });
-      }
-    });
-
-    safeProposals.push( safeProposal );
-  });
-
-  return safeProposals;
-}
-
-// deal w/ api calls
-app.get( [ '/', '/healthcheck' ], function( request, response ) {
-  response.set({
+// no caching of api routes pl0x
+app.all( '*',  function( req, res, next ) {
+  res.set({
     'Cache-Control': 'no-cache, no-store, must-revalidate',
     'Pragma': 'no-cache',
     'Expires': '0'
   });
-  response.jsonp( healthcheck );
+
+  return next();
 });
 
-app.get( '/all', function( request, response ) {
-  // get config
-  redisClient.get( 'thunderhug:meta', function( error, meta ) {
-    if( error ) {
-      response.status( 500 ).jsonp({
-        errors: [{
-          message: 'unable to contact the database at this time',
-          code: 500
-        }]
-      });
-      console.log( error );
-      return;
-    }
-
-    if( meta === null ) {
-      response.status( 500 ).jsonp({
-        errors: [{
-          message: 'unable to get config information at this time',
-          code: 500
-        }]
-      });
-      console.error( 'unable to get data for the megazord sheet' );
-      return;
-    }
-
-    meta = JSON.parse( meta );
-
-    /*
-      Get themes
-     */
-    var themeNames = {};
-    var themeDescriptions = {};
-    var themes = [];
-
-    meta.data.forEach( function( metaItem, idx ) {
-      if( metaItem.type === 'theme' ) {
-        themeNames[ metaItem.key ] = {
-          name: metaItem.value,
-          slug: metaItem.key
-        };
-      }
-
-      if( metaItem.type === 'description' ) {
-        themeDescriptions[ metaItem.key ] = metaItem.value;
-      }
-    });
-
-    for( var theme in themeNames ){
-      themes.push({
-        name: themeNames[ theme ].name,
-        slug: theme,
-        description: themeDescriptions[ theme ] || ''
-      });
-    }
-
-    // get megazord (all) proposals
-    redisClient.get( 'thunderhug:megazord', function( error, data ) {
-      if( error ) {
-        response.status( 500 ).jsonp({
-          errors: [{
-            message: 'unable to contact the database at this time',
-            code: 500
-          }]
-        });
-        console.log( error );
-        return;
-      }
-
-      if( data === null ) {
-        response.status( 500 ).jsonp({
-          errors: [{
-            message: 'unable to get proposals at this time',
-            code: 500
-          }]
-        });
-        console.error( 'unable to get data for the megazord sheet' );
-        return;
-      }
-
-      data = JSON.parse( data );
-      var proposals = data.data;
-      var safeProposals = cleanProposals( proposals );
-
-      response.set({
-        'Cache-Control': 'no-cache, no-store, must-revalidate',
-        'Pragma': 'no-cache',
-        'Expires': '0'
-      });
-      response.jsonp({
-        meta: {
-          totalProposals: safeProposals.length
-        },
-        sessions: safeProposals,
-        themes: themes
-      });
-    });
-  });
+// healthcheck
+app.get( [ '/', '/healthcheck/:format?' ], function( req, res ) {
+  res.jsonp( healthcheck );
 });
 
-app.get( '/:theme/:format?', function( request, response ) {
-  redisClient.get( 'thunderhug:meta', function( error, meta ) {
-    if( error ) {
-      response.status( 500 ).jsonp({
+/**
+ * Gets proposals and deals w/ response + response format
+ *
+ * @param  {Object} req Request object from express route
+ * @param  {Object} res Response object from express route
+ */
+function getProposals( req, res ) {
+  // format response in JSON
+  function jsonDone( err, proposals ) {
+    debug( 'responding to request w/ json' );
+    if( err ) {
+      return res.status( 500 ).jsonp({
         errors: [{
-          message: 'unable to contact the database at this time',
+          message: err.toString(),
           code: 500
         }]
       });
-      console.log( error );
-      return;
-    }
-
-    if( meta === null ) {
-      response.status( 500 ).jsonp({
-        errors: [{
-          message: 'unable to get config information at this time',
-          code: 500
-        }]
-      });
-      console.error( 'unable to get data for the megazord sheet' );
-      return;
-    }
-
-    meta = JSON.parse( meta );
-    var themeName = '';
-    meta.data.forEach( function( item ) {
-      if( item.type === 'theme' && item.key === request.params.theme ) {
-        themeName = item.value;
-      }
-    });
-
-    if( themeName === '' ) {
-      response.status( 404 ).jsonp({
-        errors: [{
-          message: 'the theme you requested was not recognized',
-          code: 404
-        }]
-      });
-      return;
     }
 
     /*
-      Get themes
+      meta block for this request
      */
-    var themeNames = {};
-    var themeDescriptions = {};
-    var themes = [];
+    var meta = {
+      slug: 'all',
+      name: 'All Proposals',
+      description: 'A full listing of all proposals submitted'
+    };
 
-    meta.data.forEach( function( metaItem, idx ) {
-      if( metaItem.type === 'theme' ) {
-        themeNames[ metaItem.key ] = {
-          name: metaItem.value,
-          slug: metaItem.key
-        };
-      }
-
-      if( metaItem.type === 'description' ) {
-        themeDescriptions[ metaItem.key ] = metaItem.value;
-      }
-    });
-
-    for( var theme in themeNames ){
-      themes.push({
-        name: themeNames[ theme ].name,
-        slug: theme,
-        description: themeDescriptions[ theme ] || ''
-      });
+    // if we were given a theme override default
+    if( req.params.theme ) {
+      meta = sessions.getTheme( req.params.theme );
     }
 
-    // get megazord (all) proposals
-    redisClient.get( 'thunderhug:megazord', function( error, data ) {
-      if( error ) {
-        response.status( 500 ).jsonp({
-          errors: [{
-            message: 'unable to contact the database at this time',
-            code: 500
-          }]
-        });
-        console.log( error );
-        return;
+    // add proposals count to meta
+    meta.totalProposals = proposals.length;
+
+    var resObj = {
+      meta: meta,
+      sessions: proposals
+    };
+
+    if( meta.slug === 'all' ) {
+      resObj.themes = sessions.getThemes();
+    }
+
+    return res.jsonp( resObj );
+  }
+
+  function csvDone( err, proposals ) {
+    debug( 'responding to request w/ json' );
+    if( err || !proposals[ 0 ] ) {
+      if( !proposals[ 0 ] ) {
+        err = 'No proposals to display right now.';
       }
-
-      if( data === null ) {
-        response.status( 500 ).jsonp({
-          errors: [{
-            message: 'unable to get proposals at this time',
-            code: 500
-          }]
-        });
-        console.error( 'unable to get data for the megazord sheet' );
-        return;
-      }
-
-      data = JSON.parse( data );
-      var proposals = data.data;
-      var themeProposals = [];
-
-      proposals.forEach( function( proposal ) {
-        if( proposal.theme === themeName ) {
-          themeProposals.push( proposal );
+      return json2csv({
+        data: [{
+          error: err.toString()
+        }],
+        fields: [ 'error' ]
+      }, function( err, csv ) {
+        if ( err ) {
+          res.status( 500 ).send();
+          return console.error( err );
         }
+        res.set('Content-Type', 'text/plain');
+        res.send( csv );
+      });
+    }
+
+    // flattern facilitators out for csv
+    proposals.forEach( function( proposal, idx ) {
+      var facilitators = '';
+
+      proposal.facilitators.forEach( function( facilitator ) {
+        var tmp = facilitator.name + ' ' + facilitator.twitter;
+        facilitators += tmp.trim() + '\n';
       });
 
-      var safeProposals = cleanProposals( themeProposals );
-
-      response.set({
-        'Cache-Control': 'no-cache, no-store, must-revalidate',
-        'Pragma': 'no-cache',
-        'Expires': '0'
-      });
-
-      switch( request.params.format ) {
-        case 'json':
-        case 'jsonp':
-        case undefined:
-          var currentTheme = {};
-
-          for( var idx = 0, len = themes.length; idx < len; idx++ ) {
-            if( themes[ idx ].slug === request.params.theme ) {
-              currentTheme = themes[ idx ];
-              break;
-            }
-          }
-
-          response.jsonp({
-            meta: {
-              name: currentTheme.name,
-              slug: currentTheme.slug,
-              description: currentTheme.description,
-              totalProposals: safeProposals.length
-            },
-            sessions: safeProposals
-          });
-        break;
-        case 'csv':
-          // csv code here
-          safeProposals.forEach( function( proposal, idx ) {
-            var stringifiedFacilitators = proposal.facilitators;
-
-            stringifiedFacilitators.forEach( function( facilitator, idx ) {
-              var tmp = facilitator;
-              facilitator = tmp.name;
-
-              if( tmp.twitter ) {
-                facilitator += ' ' + tmp.twitter;
-              }
-
-              proposal.facilitators[ idx ] = facilitator;
-            });
-
-            stringifiedFacilitators = stringifiedFacilitators.join( '\n' );
-
-            safeProposals[ idx ].facilitators = stringifiedFacilitators;
-          });
-
-          json2csv( {
-            data: safeProposals,
-            fields: [
-              'timestamp',
-              'title',
-              'theme',
-              'organization',
-              'facilitators',
-              'goals',
-              'agneda',
-              'scale',
-              'outcomes'
-            ]
-          }, function( error, csv ) {
-            if ( error ) {
-              response.status( 500 ).send();
-              return console.error( error );
-            }
-            response.set('Content-Type', 'text/plain');
-            response.send( csv );
-          });
-        break;
-        default:
-          // default code here
-          response.status( 400 ).jsonp({
-            errors: [{
-              message: 'requested format (' + request.params.format + ') not recognized',
-              code: 400
-            }]
-          });
-        break;
-      }
+      proposals[ idx ].facilitators = facilitators.trim();
     });
+
+    json2csv({
+      data: proposals,
+      fields: Object.keys( proposals[ 0 ] )
+    }, function( err, csv ) {
+      if ( err ) {
+        res.status( 500 ).send();
+        return console.error( err );
+      }
+      res.set('Content-Type', 'text/plain');
+      res.send( csv );
+    });
+  }
+
+  // if we don't have a mapping for the theme don't try and load it.
+  if( req.params.theme && sessions.getThemeSlugs().indexOf( req.params.theme ) === -1 ) {
+    return res.status( 404 ).jsonp({
+      errors: [{
+        message: req.url + ' not found',
+        code: 404
+      }]
+    });
+  }
+
+  switch( req.params.format ) {
+    case 'json':
+    case 'jsonp':
+    case undefined:
+      if( req.params.theme ) {
+        return sessions.getSessions( req.params.theme, jsonDone );
+      }
+      return sessions.getSessions( jsonDone );
+    case 'csv':
+      if( req.params.theme ) {
+        return sessions.getSessions( req.params.theme, csvDone );
+      }
+      return sessions.getSessions( csvDone );
+    default:
+      return res.status( 400 ).jsonp({
+        errors: [{
+          message: 'requested format is unsupported',
+          code: 400
+        }]
+      });
+  }
+}
+
+// return all proposals (special route)
+app.get( '/all/:format?', getProposals);
+// return specific themes proposals
+app.get( '/:theme/:format?', getProposals);
+
+// custom 404
+app.use( function( req, res, next ) {
+  res.status( 404 ).jsonp({
+    errors: [{
+      message: req.url + ' not found',
+      code: 404
+    }]
   });
+
+  return next();
 });
 
 // launch the server
