@@ -42,6 +42,10 @@ doc.setAuth( env.get( 'GOOGLE_USER' ), env.get( 'GOOGLE_USER_PASS' ), function( 
 
       // get rows headings
       sheet.getRows( function( error, rowData ) {
+        if( error ) {
+          console.error( error );
+          process.exit( 1 );
+        }
         // get column headings before processing futher
         sheet.columnNames = [];
         for( var key in rowData[ 0 ] ) {
