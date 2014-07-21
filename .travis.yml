@@ -1,0 +1,20 @@
+language: node_js
+node_js:
+  - "0.10"
+branches:
+  only:
+    - master
+before_script:
+  - npm install -g grunt-cli
+before_deploy:
+  - echo "Deploying commit $TRAVIS_COMMIT"
+deploy:
+  provider: heroku
+  strategy: git
+  api_key:
+    secure: X3SP7eEEcgd1m6e4dwDfUq/0CijZ3clXuhS37GnFiz1CXODcHBK1yue+6592TBZ6IrixciUshtfsi7Q2f4/u8yg5jd1LjlZ5KYMQdllBGGCfDGeRrS8NPDTUGFuy1hjI0XP2aZG20jtjvaRpULRMC2S2JcKM9JpAifoK5uiNtiM=
+  app: thunderhug
+  on:
+    branch: master
+    repo: mozilla/thunderhug
+    tags: true
