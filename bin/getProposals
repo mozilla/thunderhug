@@ -32,6 +32,10 @@ doc.setAuth( env.get( 'GOOGLE_USER' ), env.get( 'GOOGLE_USER_PASS' ), function( 
       process.exit( 1 );
     }
 
+    // simple counter to check if all sheets processed
+    var processedSheets = 0;
+
+    // process worksheets
     rawData.worksheets.forEach( function( sheet, idx ) {
       // setup sane usage
       worksheets[ sheet.title ] = sheet;
@@ -95,10 +99,14 @@ doc.setAuth( env.get( 'GOOGLE_USER' ), env.get( 'GOOGLE_USER_PASS' ), function( 
         });
 
         // store data
-        redisClient.set( 'thunderhug:' + sheet.title, JSON.stringify( worksheets[ sheet.title ] ) );
-
-        // done all the things, exit now
-        process.exit( 0 );
+        redisClient.set( 'thunderhug:' + sheet.title, JSON.stringify( worksheets[ sheet.title ] ), function() {
+          // check if all worksheets processed + exit if so.
+          processedSheets += 1;
+          if( processedSheets === rawData.worksheets.length ) {
+            // done all the things, exit now
+            process.exit( 0 );
+          }
+        });
       });
     });
   });
