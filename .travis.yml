@@ -14,4 +14,3 @@ deploy:
   on:
     branch: master
     repo: mozilla/thunderhug
-    tags: true
